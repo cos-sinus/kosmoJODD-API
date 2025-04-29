@@ -1,6 +1,7 @@
 from sqlalchemy.orm.session import Session
 from pydantic import BaseModel, EmailStr
 from models import User, UserSchema
+from typing import List
 
 
 class UserCreateDto(BaseModel):
@@ -25,11 +26,18 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> UserSchema:
         user = self.db.query(User).filter(User.id == user_id).first()
         if user is None:
-            raise Exception("Такой пользователя нет")
+            raise Exception("Такого пользователя нет")
         return UserSchema.model_validate(user, from_attributes=True)
     
     def get_by_email(self, email: str) -> UserSchema:
         user = self.db.query(User).filter(User.email == email).first()
         if user is None:
-            raise Exception("Такой пользователя нет")
+            raise Exception("Такого пользователя нет")
         return UserSchema.model_validate(user, from_attributes=True)
+    
+    def get_all(self) -> List[UserSchema]:
+        return [
+            UserSchema.model_validate(user, from_attributes=True)
+            for user in self.db.query(User).all()
+        ]
+    

@@ -1,6 +1,7 @@
 from repositories import UserRepository, UserCreateDto
 from models import UserSchema
 from pydantic import BaseModel, EmailStr
+from typing import List
 from jwt import encode
 import os
 
@@ -20,7 +21,7 @@ class UserService:
     def _generate_token(self, user_id: int, is_admin: bool) -> str:
             payload = {
                 'user_id': str(user_id),
-                'status_id': str(int(is_admin)),
+                'is_admin': str(int(is_admin)),
             }
             print("Шифрую в токен", payload)
             return encode(payload, os.getenv('JWT_SECRET'), algorithm='HS256')
@@ -31,3 +32,6 @@ class UserService:
             token = self._generate_token(user.id, user.is_admin)
             return token
         raise Exception("Пароль неверный")
+
+    def get_all(self) -> List[UserSchema]:
+        return self.user_repo.get_all()

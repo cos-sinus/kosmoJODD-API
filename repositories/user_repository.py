@@ -22,4 +22,14 @@ class UserRepository:
         self.db.refresh(user) # Обновляем данные пользователя (id, ...)
         return UserSchema.model_validate(user, from_attributes=True) # Переводим в схему и возвращаем
     
-
+    def get_by_id(self, user_id: int) -> UserSchema:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise Exception("Такой пользователя нет")
+        return UserSchema.model_validate(user, from_attributes=True)
+    
+    def get_by_email(self, email: str) -> UserSchema:
+        user = self.db.query(User).filter(User.email == email).first()
+        if user is None:
+            raise Exception("Такой пользователя нет")
+        return UserSchema.model_validate(user, from_attributes=True)

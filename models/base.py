@@ -3,10 +3,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 from contextlib import contextmanager
-from dotenv import load_dotenv
 import os, time
 
-load_dotenv(override=True)
 
 Base = declarative_base()
 

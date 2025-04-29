@@ -5,6 +5,7 @@ from repositories import UserRepository
 from services import UserService
 from controllers import UserController
 from routers import UserRouter
+from dotenv import load_dotenv
 
 
 # @app.route("/")
@@ -16,6 +17,7 @@ from routers import UserRouter
 
 if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
+    load_dotenv(override=True)
     with get_db() as db:
         user_repo = UserRepository(db)
         user_service = UserService(user_repo)

@@ -9,4 +9,4 @@ class UserRouter:
         self._setup_routes()
 
     def _setup_routes(self):
-        self.router.add_url_rule("/signup/", view_func=self.controller.signup,methods=["POST"], endpoint="signup")
+        self.router.add_url_rule("/signup/", view_func=self.controller.signup, methods=["POST"], endpoint="signup")

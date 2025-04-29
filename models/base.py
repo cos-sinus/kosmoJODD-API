@@ -1,6 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import PendingRollbackError, SQLAlchemyError, OperationalError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 from contextlib import contextmanager
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(
     DATABASE_URL,
-    echo=False, # логирование
+    echo=True, # логирование
     pool_pre_ping=True,
     pool_recycle=3600,
     max_overflow=20,

@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from datetime import datetime
 
 
-class UserSchema(BaseModel):
+class UserSchema(BaseModel): # Схема
     id: int
     email: EmailStr
     name: str
@@ -12,7 +12,9 @@ class UserSchema(BaseModel):
     password: str
     created: datetime
 
-class User(Base):
+
+class User(Base): # Модель
+    """# Привязка к базе данных"""
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), unique=True)

@@ -11,4 +11,4 @@ class UserController:
         body = request.get_json()
         user_data = UserCreateDto(**body)
         user = self.user_service.signup(user_data)
-        return 201, jsonify(user.model_dump())
+        return jsonify(user.model_dump()), 201

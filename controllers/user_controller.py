@@ -1,7 +1,7 @@
 from services import UserService, SigninDto
 from flask import request, jsonify
 from repositories import UserCreateDto
-from utils.decorators import is_admin
+from utils.decorators import is_admin, authorized
 
 
 class UserController:
@@ -21,8 +21,13 @@ class UserController:
             token = self.user_service.signin(signin_data)
             return jsonify({"token" : token}), 200
         except Exception as e:
-            return jsonify({"error" : str(e)}), 400
-        
+            return jsonify({"error" : str(e)}), 400 
+
+    @authorized
+    def me(self, user_id: int):
+        user = self.user_service.me(user_id)
+        return jsonify(user.model_dump()), 200
+    
     @is_admin
     def get_all(self, user_id: int):
         users = [user.model_dump() for user in self.user_service.get_all()]

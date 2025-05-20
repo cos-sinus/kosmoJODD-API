@@ -33,5 +33,8 @@ class UserService:
             return token
         raise Exception("Пароль неверный")
 
+    def me(self, user_id: int):
+        return self.user_repo.get_by_id(user_id)
+
     def get_all(self) -> List[UserSchema]:
         return self.user_repo.get_all()

@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 from typing import List
 
-#https://ru.wikipedia.org/wiki/TLE
-#strip
 
 class Satelite(BaseModel):
     name: str
@@ -29,7 +27,6 @@ class Satelite(BaseModel):
     revolution_num: int # Номер витка на момент эпохи
 
     checksum: int # Контрольная сумма по модулю 10
-
 
 
 class TLE_encoder:

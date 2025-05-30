@@ -1,37 +1,10 @@
 from pydantic import BaseModel
 from typing import List
-
-
-class Satelite(BaseModel):
-    name: str
-
-    cutalog_num: str # Номер спутника в базе данных NORAD
-    classfic: str # Классификация (U=Unclassified — не секретный)
-    international_des_year: int # Международное обозначение (последние две цифры года запуска)
-    international_des_num: int # Международное обозначение (номер запуска в этом году)
-    international_des_push: str # Международное обозначение (часть запуска)
-    epoch_year: int # 	Год эпохи (последние две цифры)
-    epoch_day: float # Время эпохи (целая часть — номер дня в году, дробная — часть дня)
-    first_meanmotion_a: float # Первая производная от среднего движения (ускорение), делённая на два [виток/день^2]
-    second_meanmotion_a: str # Вторая производная от среднего движения, делённая на шесть
-    drag_term_b: str # Коэффициент торможения B*
-    nul: int # Изначально — типы эфемерид, сейчас — всегда число 0
-    el_set_num: int # Номер (версия) элемента
-
-    inclin_digrees: float # Наклонение в градусах
-    ascension: float # Долгота восходящего узла в градусах
-    eccentricity: float # Эксцентриситет (подразумевается, что число начинается с десятичного разделителя)
-    perigee_arg: float # Аргумент перицентра в градусах
-    meananomaly: float # Средняя аномалия в градусах
-    meanmotion: float # Частота обращения (оборотов в день) (среднее движение) [виток/день]
-    revolution_num: int # Номер витка на момент эпохи
-
-    checksum: int # Контрольная сумма по модулю 10
-
+from models import SatelliteSchema
 
 class TLE_encoder:
     @staticmethod
-    def decode_tle(tle: List[str]) -> Satelite:
+    def decode_tle(tle: List[str]) -> SatelliteSchema:
         line1 = tle[1].strip()
         line2 = tle[2].strip()
 
@@ -59,7 +32,8 @@ class TLE_encoder:
         revolution_num = int(line2[63:68])
         checksum2 = int(line2[68])
 
-        return Satelite(name=name, 
+        return SatelliteSchema(name=name, 
+                        full_TLE=f'{tle[1].strip()}\n{tle[2].strip()}',
                         cutalog_num=cutalog_num1, classfic=classfic, international_des_year=international_des_year,
                         international_des_num=international_des_num, international_des_push=international_des_push, epoch_year=epoch_year, epoch_day=epoch_day, 
                         first_meanmotion_a=first_meanmotion_a, second_meanmotion_a=second_meanmotion_a, drag_term_b=drag_term_b, nul=nul, el_set_num=el_set_num,
@@ -68,7 +42,7 @@ class TLE_encoder:
 
     
     @staticmethod
-    def open_TLEfile(path: str) -> List[Satelite]:
+    def open_TLEfile(path: str) -> List[SatelliteSchema]:
         tles = []
         with open(path, 'r') as file:
             lines = file.readlines()

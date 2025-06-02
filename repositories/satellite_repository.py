@@ -27,3 +27,9 @@ class SatelliteRepository:
             SatelliteSchema.model_validate(satel, from_attributes=True)
             for satel in self.db.query(Satellite).all()
         ]
+    
+    def get_by_id(self, id: int) -> SatelliteSchema:
+        satel = self.db.query(Satellite).filter(Satellite.id == id).first()
+        if satel is None:
+            raise Exception("Такого спутника нет")
+        return SatelliteSchema.model_validate(satel, from_attributes=True)

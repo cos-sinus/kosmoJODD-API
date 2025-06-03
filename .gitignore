@@ -4,3 +4,4 @@ venv
 **.db
 test.py
 _info
+fill_tables.py

@@ -5,6 +5,7 @@ from services import UserService, SatelliteService
 from controllers import UserController, SatelliteController
 from routers import UserRouter, SatelliteRouter
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 
 if __name__ == "__main__":
@@ -20,6 +21,7 @@ if __name__ == "__main__":
         user_router = UserRouter(user_controller)
         satellite_router = SatelliteRouter(satellite_controller)
         app = Flask(__name__)
+        CORS(app)
         app.register_blueprint(user_router.router, url_prefix="/users")
         app.register_blueprint(satellite_router.router, url_prefix="/satellites")
         app.run(host="0.0.0.0", port=5000)

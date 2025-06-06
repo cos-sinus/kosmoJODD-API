@@ -10,3 +10,6 @@ class SatelliteController:
         sattelites = self.satellite_service.get_all()
         return jsonify([satellite.model_dump() for satellite in sattelites]), 200
 
+    def near_satellites(self, satellite_id: int):
+        sattelites = self.satellite_service.near_satellites(satellite_id)
+        return jsonify([satellite.model_dump() for satellite in sattelites]), 200

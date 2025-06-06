@@ -10,3 +10,4 @@ class SatelliteRouter:
 
     def _setup_routes(self):
         self.router.add_url_rule("/", view_func=self.controller.get_all, methods=["GET"], endpoint="get_all_satellites")
+        self.router.add_url_rule("/near/<int:satellite_id>", view_func=self.controller.near_satellites, methods=["GET"], endpoint="near_satellites")

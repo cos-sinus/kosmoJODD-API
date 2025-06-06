@@ -4,6 +4,7 @@ from sqlalchemy import Column, Float, Integer, String, Boolean, DateTime, Text
 from datetime import datetime
 
 
+# получается нада добавить в базу поле с наличием камеры и фокусным расстоянием
 class SatelliteSchema(BaseModel):
     id: int|None = None
     name: str

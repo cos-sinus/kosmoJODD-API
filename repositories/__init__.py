@@ -3,12 +3,13 @@
 """
 from .user_repository import UserRepository, UserCreateDto
 from .satellite_repository import SatelliteRepository
-from .request_repository import RequestRepository
+from .request_repository import RequestRepository, RequestCreateDto
 
 
 __all__ = [
     "UserRepository",
     "UserCreateDto",
     "SatelliteRepository",
-    "RequestRepository"
+    "RequestRepository",
+    "RequestCreateDto",
 ]

@@ -1,13 +1,13 @@
 from sqlalchemy.orm.session import Session
 from pydantic import BaseModel
 from datetime import datetime
-from models import RequestStatus
+from models import RequestStatus, Request
 
 class RequestCreateDto(BaseModel):
     user_id: int
     camera_satellite_id: int
     target_satellite_id: int
-    request_time: datetime
+    request_time: datetime | None = None
 
 
 class RequestRepository:
@@ -20,4 +20,7 @@ class RequestRepository:
         self.db.commit()
 
     def create(self, request: RequestCreateDto):
-        pass
+        request = Request(**request.model_dump(), status_id=1)
+        self.db.add(request)
+        self.db.commit()
+

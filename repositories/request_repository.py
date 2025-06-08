@@ -20,4 +20,4 @@ class RequestRepository:
         self.db.commit()
 
     def create(self, request: RequestCreateDto):
-        pass       
+        pass

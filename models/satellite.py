@@ -33,6 +33,14 @@ class SatelliteSchema(BaseModel):
 
     checksum: int # Контрольная сумма по модулю 10
 
+
+class SatelliteCrossSchema(BaseModel):
+    id: int
+    target_id: int
+    name: str
+    time_visible: datetime
+
+
 class Satellite(Base):
     __tablename__ = "satellites"
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -1,10 +1,10 @@
-from skyfield.api import load, EarthSatellite
+from skyfield.api import load, EarthSatellite, Time
 from models import SatelliteSchema
 import numpy as np
 
 
 class GeometryEngine:
-    def check_visibility(self, target_schema: SatelliteSchema, observer_schema: SatelliteSchema, d:int=100) -> bool:
+    def check_visibility(self, target_schema: SatelliteSchema, observer_schema: SatelliteSchema, d:int=100) -> Time | None:
         ts = load.timescale()
 
         target_tle = target_schema.full_TLE.splitlines()
@@ -28,6 +28,5 @@ class GeometryEngine:
             distance = np.linalg.norm(relative_pos)
             # Угол между вектором и надиром (упрощённо)
             if distance < d:  # Пример: макс. расстояние 100 км
-                return True
-
-        return False
+                return time
+        return None

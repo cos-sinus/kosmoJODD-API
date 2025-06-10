@@ -9,6 +9,7 @@ class SatelliteSchema(BaseModel):
     id: int|None = None
     name: str
     full_TLE: str
+    camera: bool = False
 
     cutalog_num: str # Номер спутника в базе данных NORAD
     classfic: str # Классификация (U=Unclassified — не секретный)
@@ -46,6 +47,7 @@ class Satellite(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), unique=True)
     full_TLE = Column(Text, unique=True)
+    camera = Column(Boolean, default=False)######################################################
 
     cutalog_num = Column(String(255)) # Номер спутника в базе данных NORAD
     classfic = Column(String(255)) # Классификация (U=Unclassified — не секретный)

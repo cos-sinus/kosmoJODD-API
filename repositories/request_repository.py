@@ -1,7 +1,7 @@
 from sqlalchemy.orm.session import Session
 from pydantic import BaseModel
 from datetime import datetime
-from models import RequestStatus, Request
+from models import RequestStatus, Request, RequestSchema
 
 class RequestCreateDto(BaseModel):
     user_id: int
@@ -24,3 +24,10 @@ class RequestRepository:
         self.db.add(request)
         self.db.commit()
 
+    def get_all(self):
+        return [RequestSchema.model_validate(request, from_attributes=True) for request in self.db.query(Request).all()]
+    
+    def decline_request(self, request_id: int):
+        request = self.db.query(Request).filter(Request.id == request_id).first()
+        request.status_id = 2
+        self.db.commit()

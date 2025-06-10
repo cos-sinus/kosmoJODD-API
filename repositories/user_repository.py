@@ -40,4 +40,3 @@ class UserRepository:
             UserSchema.model_validate(user, from_attributes=True)
             for user in self.db.query(User).all()
         ]
-    

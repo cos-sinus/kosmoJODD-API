@@ -18,6 +18,7 @@ class Request(Base):
     request_time = Column(DateTime)
     created = Column(DateTime, default=datetime.now)
     status_id = Column(Integer, ForeignKey("request_status.id"))
+    comment = Column(String(255), nullable=True)
 
 class RequestStatusSchema(BaseModel):
     id: int
@@ -31,3 +32,4 @@ class RequestSchema(BaseModel):
     request_time: datetime #время проведеня съемки
     created: datetime #время создания запроса
     status_id: int #статус запроса
+    comment: str | None = None #комментарий к запросу

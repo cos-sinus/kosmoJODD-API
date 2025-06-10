@@ -26,13 +26,14 @@ class SatelliteService:
         target_satellite = self.satellite_repo.get_by_id(satellite_id)
         result = []
         for satellite in self.get_all():
-            visible = self.geometry_engine.check_visibility(target_satellite, satellite)
-            if satellite.id != target_satellite.id and visible is not None:
-                print("Найден близкий спутник", satellite.name)
-                result.append(SatelliteCrossSchema(
-                    id=satellite.id, 
-                    target_id=target_satellite.id, 
-                    name=satellite.name, 
-                    time_visible=visible.utc_datetime()
-                ))
+            if satellite.camera: # Если у спутника есть камера, то ищем только у него
+                visible = self.geometry_engine.check_visibility(target_satellite, satellite)
+                if satellite.id != target_satellite.id and visible is not None:
+                    print("Найден близкий спутник", satellite.name)
+                    result.append(SatelliteCrossSchema(
+                        id=satellite.id, 
+                        target_id=target_satellite.id, 
+                        name=satellite.name, 
+                        time_visible=visible.utc_datetime()
+                    ))
         return result

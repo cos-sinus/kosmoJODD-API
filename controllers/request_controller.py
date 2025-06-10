@@ -2,6 +2,7 @@ from services import RequestService
 from repositories import RequestCreateDto
 from utils.decorators import authorized
 from flask import request, jsonify
+from datetime import datetime
 
 
 
@@ -12,6 +13,8 @@ class RequestController:
     @authorized
     def create_request(self, user_id: int):
         data = request.get_json()
+        request_time = datetime.strptime(data["request_time"], "%d-%m-%Y %H:%M:%S")
+        data["request_time"] = request_time
         request_data = RequestCreateDto(**data, user_id=user_id)
         self.request_service.create(request_data)
         return jsonify({"message" : "Запрос успешно создан"}), 201

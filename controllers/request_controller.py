@@ -37,3 +37,11 @@ class RequestController:
             return jsonify({"error": "Файл не найден"}), 400
         self.request_service.accept_request(request_id, file)
         return jsonify({"message" : "Запрос успешно одобрен"}), 200
+    
+    @authorized
+    def get_requests_by_user_id(self, user_id: int):
+        return jsonify([request.model_dump() for request in self.request_service.get_by_user_id(user_id)]), 200
+    
+    @is_admin
+    def get_unchecked_requests(self, user_id: int):
+        return jsonify([request.model_dump() for request in self.request_service.get_unchecked_requests()]), 200

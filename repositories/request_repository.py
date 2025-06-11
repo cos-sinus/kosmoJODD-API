@@ -38,3 +38,15 @@ class RequestRepository:
         request.status_id = 3
         request.file_path = file_path
         self.db.commit()
+
+    def get_by_user_id(self, user_id: int):
+        return [
+            RequestSchema.model_validate(request, from_attributes=True) 
+            for request in self.db.query(Request).filter(Request.user_id == user_id).all()
+        ]
+    
+    def get_unchecked_requests(self):
+        return [
+            RequestSchema.model_validate(request, from_attributes=True) 
+            for request in self.db.query(Request).filter(Request.status_id == 1).all()
+        ]

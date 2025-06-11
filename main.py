@@ -5,6 +5,7 @@ from services import UserService, SatelliteService, RequestService
 from controllers import UserController, SatelliteController, RequestController
 from core import GeometryEngine
 from routers import UserRouter, SatelliteRouter, RequestRouter
+from utils.request_file_storage import RequestFileStorage
 from dotenv import load_dotenv
 from flask_cors import CORS
 
@@ -19,9 +20,11 @@ if __name__ == "__main__":
         satellite_repo = SatelliteRepository(db)
         request_repo = RequestRepository(db)
 
+        request_file_storage = RequestFileStorage()
+
         user_service = UserService(user_repo)
         satellite_service = SatelliteService(satellite_repo, g_e)
-        request_service = RequestService(request_repo)
+        request_service = RequestService(request_repo, request_file_storage)
 
         user_controller = UserController(user_service)
         satellite_controller = SatelliteController(satellite_service)
@@ -31,7 +34,7 @@ if __name__ == "__main__":
         satellite_router = SatelliteRouter(satellite_controller)
         request_router = RequestRouter(request_controller)
 
-        app = Flask(__name__)
+        app = Flask(__name__, static_folder="files", static_url_path="/files")
         CORS(app)
         app.register_blueprint(user_router.router, url_prefix="/users")
         app.register_blueprint(satellite_router.router, url_prefix="/satellites")

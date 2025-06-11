@@ -25,5 +25,15 @@ class RequestController:
 
     @is_admin
     def decline_request(self, user_id: int, request_id: int):
-        self.request_service.decline_request(request_id)
+        data = request.get_json()
+        comment = data.get("comment", None)
+        self.request_service.decline_request(request_id, comment)
         return jsonify({"message" : "Запрос успешно отклонен"}), 200
+    
+    @is_admin
+    def accept_request(self, user_id: int, request_id: int):
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "Файл не найден"}), 400
+        self.request_service.accept_request(request_id, file)
+        return jsonify({"message" : "Запрос успешно одобрен"}), 200

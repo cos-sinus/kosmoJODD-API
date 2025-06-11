@@ -27,7 +27,14 @@ class RequestRepository:
     def get_all(self):
         return [RequestSchema.model_validate(request, from_attributes=True) for request in self.db.query(Request).all()]
     
-    def decline_request(self, request_id: int):
+    def decline_request(self, request_id: int, comment: str):
         request = self.db.query(Request).filter(Request.id == request_id).first()
         request.status_id = 2
+        request.comment = comment
+        self.db.commit()
+
+    def accept_request(self, request_id: int, file_path: str):
+        request = self.db.query(Request).filter(Request.id == request_id).first()
+        request.status_id = 3
+        request.file_path = file_path
         self.db.commit()

@@ -6,7 +6,7 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
     with get_db() as db:
         satellite_repository = SatelliteRepository(db)
-        with open("_info/cameras.txt") as file:
+        with open("cameras.txt") as file:
             for line in file:
                 try:
                     satellite_repository.add_camera(line.strip())

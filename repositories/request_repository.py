@@ -1,4 +1,5 @@
 from sqlalchemy.orm.session import Session
+from sqlalchemy.orm import joinedload
 from pydantic import BaseModel
 from datetime import datetime
 from models import RequestStatus, Request, RequestSchema
@@ -48,5 +49,10 @@ class RequestRepository:
     def get_unchecked_requests(self):
         return [
             RequestSchema.model_validate(request, from_attributes=True) 
-            for request in self.db.query(Request).filter(Request.status_id == 1).all()
+            for request in self.db.query(Request)
+            .options(
+                joinedload(Request.status),
+                joinedload(Request.camera_satellite),
+                joinedload(Request.target_satellite)
+            ).filter(Request.status_id == 1).all()
         ]

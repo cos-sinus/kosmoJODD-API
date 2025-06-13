@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from models.base import Base
 from sqlalchemy import Column, Float, Integer, String, Boolean, DateTime, Text
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 
@@ -71,3 +72,15 @@ class Satellite(Base):
     revolution_num = Column(Integer) # Номер витка на момент эпохи
 
     checksum = Column(Integer) # Контрольная сумма по модулю 10
+
+    camera_requests = relationship(
+        "Request",
+        back_populates="camera_satellite",
+        foreign_keys="[Request.camera_satellite_id]",
+    )
+
+    target_requests = relationship(
+        "Request",
+        back_populates="target_satellite",
+        foreign_keys="[Request.target_satellite_id]",
+    )

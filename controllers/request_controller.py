@@ -13,7 +13,7 @@ class RequestController:
     @authorized
     def create_request(self, user_id: int):
         data = request.get_json()
-        request_time = datetime.strptime(data["request_time"], "%d-%m-%Y %H:%M:%S")
+        request_time = datetime.strptime(data["request_time"], "%d.%m.%Y, %H:%M:%S")
         data["request_time"] = request_time
         request_data = RequestCreateDto(**data, user_id=user_id)
         self.request_service.create(request_data)

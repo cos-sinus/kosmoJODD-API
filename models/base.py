@@ -3,10 +3,13 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 from contextlib import contextmanager
+from dotenv import load_dotenv
 import os, time
 
 
 Base = declarative_base()
+load_dotenv(override=True)
+
 
 # Подключение к базе данных SQLite
 DATABASE_URL = os.getenv("DATABASE_URL")

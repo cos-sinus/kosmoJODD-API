@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  api:
+    build: .
+    container_name: flask-api
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./.env:/app/.env
+    environment:
+      - FLASK_APP=main.py
+      - FLASK_ENV=development
+    depends_on:
+      - init-db
+
+  init-db:
+    build: .
+    container_name: db-init
+    command: python startup.py
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_ENV=development

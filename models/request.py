@@ -1,5 +1,7 @@
 from models.base import Base
+from models.satellite import SatelliteSchema
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, String
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -8,6 +10,9 @@ class RequestStatus(Base):
     __tablename__ = 'request_status'
     id = Column(Integer, primary_key=True)
     title = Column(String(255))
+
+    requests = relationship("Request", back_populates="status")
+    
 
 class Request(Base):
     __tablename__ = "requests"
@@ -20,6 +25,19 @@ class Request(Base):
     status_id = Column(Integer, ForeignKey("request_status.id"))
     comment = Column(String(255), nullable=True)
     file_path = Column(String(255), nullable=True)
+
+    status = relationship("RequestStatus", back_populates="requests")
+    camera_satellite = relationship(
+        "Satellite",
+        back_populates="camera_requests",
+        foreign_keys=[camera_satellite_id],
+    )
+
+    target_satellite = relationship(
+        "Satellite",
+        back_populates="target_requests",
+        foreign_keys=[target_satellite_id],
+    )
 
 
 class RequestStatusSchema(BaseModel):
@@ -36,3 +54,7 @@ class RequestSchema(BaseModel):
     status_id: int #статус запроса
     comment: str | None = None #комментарий к запросу
     file_path: str | None = None
+
+    status: RequestStatusSchema | None = None
+    camera_satellite: SatelliteSchema | None = None
+    target_satellite: SatelliteSchema | None = None

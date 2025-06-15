@@ -37,7 +37,7 @@ class SatelliteRepository:
     def add_camera(self, name: str) -> SatelliteSchema:
         satel = self.db.query(Satellite).filter(Satellite.name == name).first()
         if satel is None:
-            raise Exception("Такого спутника нет")
+            raise Exception(f"Спутника {name} нет")
         satel.camera = True
         self.db.commit()
         return SatelliteSchema.model_validate(satel, from_attributes=True)

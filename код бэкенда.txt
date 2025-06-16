@@ -1,0 +1,857 @@
+controllers -> request_controller.py
+
+from services import RequestService
+from repositories import RequestCreateDto
+from utils.decorators import authorized, is_admin
+from flask import request, jsonify
+from datetime import datetime
+
+class RequestController:
+    def __init__(self, request_service: RequestService):
+        self.request_service = request_service
+
+    @authorized
+    def create_request(self, user_id: int):
+        data = request.get_json()
+        request_time = datetime.strptime(data["request_time"], "%d.%m.%Y, %H:%M:%S")
+        data["request_time"] = request_time
+        request_data = RequestCreateDto(**data, user_id=user_id)
+        self.request_service.create(request_data)
+        return jsonify({"message" : "Запрос успешно создан"}), 201
+    
+    @is_admin
+    def get_all_requests(self, user_id: int):
+        return jsonify([request.model_dump() for request in self.request_service.get_all()]), 200
+
+    @is_admin
+    def decline_request(self, user_id: int, request_id: int):
+        data = request.get_json()
+        comment = data.get("comment", None)
+        self.request_service.decline_request(request_id, comment)
+        return jsonify({"message" : "Запрос успешно отклонен"}), 200
+    
+    @is_admin
+    def accept_request(self, user_id: int, request_id: int):
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "Файл не найден"}), 400
+        self.request_service.accept_request(request_id, file)
+        return jsonify({"message" : "Запрос успешно одобрен"}), 200
+    
+    @authorized
+    def get_requests_by_user_id(self, user_id: int):
+        return jsonify([request.model_dump() for request in self.request_service.get_by_user_id(user_id)]), 200
+    
+    @is_admin
+    def get_unchecked_requests(self, user_id: int):
+        return jsonify([request.model_dump() for request in self.request_service.get_unchecked_requests()]), 200
+
+
+controllers -> satellite_controller.py
+
+from services import SatelliteService
+from flask import request, jsonify
+
+class SatelliteController:
+    def __init__(self, satellite_service: SatelliteService):
+        self.satellite_service = satellite_service
+
+    def get_all(self):
+        sattelites = self.satellite_service.get_all()
+        return jsonify([satellite.model_dump() for satellite in sattelites]), 200
+
+    def near_satellites(self, satellite_id: int):
+        sattelites = self.satellite_service.near_satellites(satellite_id)
+        return jsonify([satellite.model_dump() for satellite in sattelites]), 200
+
+controllers -> user_controller.py
+
+from services import UserService, SigninDto
+from flask import request, jsonify
+from repositories import UserCreateDto
+from utils.decorators import is_admin, authorized
+
+class UserController:
+    def __init__(self, user_service: UserService):
+        self.user_service = user_service
+
+    def signup(self):
+        body = request.get_json()
+        user_data = UserCreateDto(**body)
+        user = self.user_service.signup(user_data)
+        return jsonify(user.model_dump()), 201
+    
+    def signin(self):
+        # try:
+            body = request.get_json()
+            signin_data = SigninDto(**body)
+            token = self.user_service.signin(signin_data)
+            return jsonify({"token" : token}), 200
+        # except Exception as e:
+        #     return jsonify({"error" : str(e)}), 400 
+
+    @authorized
+    def me(self, user_id: int):
+        user = self.user_service.me(user_id)
+        return jsonify(user.model_dump()), 200
+    
+    @is_admin
+    def get_all(self, user_id: int):
+        users = [user.model_dump() for user in self.user_service.get_all()]
+        return jsonify({"users" : users}), 200
+
+
+core -> geometry_engine.py
+
+from skyfield.api import load, EarthSatellite, Time
+from models import SatelliteSchema
+import numpy as np
+
+
+class GeometryEngine:
+    def check_visibility(self, target_schema: SatelliteSchema, observer_schema: SatelliteSchema, d:int=50) -> Time | None:
+        ts = load.timescale()
+        count = 0
+        target_tle = target_schema.full_TLE.splitlines()
+        observer_tle = observer_schema.full_TLE.splitlines()
+        target = EarthSatellite(*target_tle, name=target_schema.name, ts =ts)
+        observer = EarthSatellite(*observer_tle, name=observer_schema.name, ts=ts)
+    
+        # Временной диапазон (ближайшие 24 часа)
+        t_start = ts.now()
+        t_end = t_start + 2  # 1 день
+        times = ts.linspace(t_start, t_end, 1440)  # Шаг 1 минута
+
+        # Проверка условий
+        for time in times:
+            # Позиции в ECI
+            target_pos = target.at(time).position.km
+            observer_pos = observer.at(time).position.km
+
+            # Вектор от наблюдателя к цели
+            relative_pos = target_pos - observer_pos
+            distance = np.linalg.norm(relative_pos)
+            # Угол между вектором и надиром (упрощённо)
+            if distance < d:  # Пример: макс. расстояние 100 км
+                return time
+        return None
+
+core -> tle_encoder.py
+
+from pydantic import BaseModel
+from typing import List
+from models import SatelliteSchema
+
+class TLE_encoder:
+    @staticmethod
+    def decode_tle(tle: List[str]) -> SatelliteSchema:
+        line1 = tle[1].strip()
+        line2 = tle[2].strip()
+
+        name = tle[0].strip()
+
+        cutalog_num1 = line1[2:7]
+        classfic = line1[7]
+        international_des_year = int(line1[9:11])
+        international_des_num = int(line1[11:14])
+        international_des_push = line1[14:17]
+        epoch_year = int(line1[18:20])
+        epoch_day = float(line1[20:32])
+        first_meanmotion_a = float(line1[33:43])
+        second_meanmotion_a = line1[44:52]
+        drag_term_b = line1[53:61]
+        nul = int(line1[62])
+        el_set_num = int(line1[64:68])
+
+        inclin_digrees = float(line2[8:16])
+        ascension = float(line2[17:25])
+        eccentricity = float(line2[26:33])
+        perigee_arg = float(line2[34:42])
+        meananomaly = float(line2[43:51])
+        meanmotion = float(line2[52:63])
+        revolution_num = int(line2[63:68])
+        checksum2 = int(line2[68])
+
+        return SatelliteSchema(name=name, 
+                        full_TLE=f'{tle[1].strip()}\n{tle[2].strip()}',
+                        cutalog_num=cutalog_num1, classfic=classfic, international_des_year=international_des_year,
+                        international_des_num=international_des_num, international_des_push=international_des_push, epoch_year=epoch_year, epoch_day=epoch_day, 
+                        first_meanmotion_a=first_meanmotion_a, second_meanmotion_a=second_meanmotion_a, drag_term_b=drag_term_b, nul=nul, el_set_num=el_set_num,
+                        inclin_digrees=inclin_digrees, ascension=ascension, eccentricity=eccentricity, 
+                        perigee_arg=perigee_arg, meananomaly=meananomaly, meanmotion=meanmotion, revolution_num=revolution_num, checksum=checksum2)
+
+    
+    @staticmethod
+    def open_TLEfile(path: str) -> List[SatelliteSchema]:
+        tles = []
+        with open(path, 'r') as file:
+            lines = file.readlines()
+            for i in range(0, len(lines), 3):
+                tle = lines[i : i +3]
+                tles.append(TLE_encoder.decode_tle(tle))
+        return tles
+
+if __name__ == "__main__":
+    TLE_encoder.open_TLEfile("TLE_msu.txt")
+
+models -> base.py
+
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.exc import OperationalError
+from sqlalchemy import create_engine
+from contextlib import contextmanager
+from dotenv import load_dotenv
+import os, time
+
+
+Base = declarative_base()
+load_dotenv(override=True)
+
+
+# Подключение к базе данных SQLite
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=True, # логирование
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    max_overflow=20,
+    pool_size=10
+)
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=True, bind=engine))
+
+
+@contextmanager
+def get_db():
+    session = None
+    for attempt in range(5):  # Пробуем 5 раз
+        try:
+            session = SessionLocal()
+            yield session
+            return  # Если успех — выходим
+        except OperationalError:
+            print(f"[{attempt + 1}/5] База недоступна, пробую снова...")
+            time.sleep(5)
+        finally:
+            if session:
+                session.close()  # Закрываем сессию всегда
+    raise Exception("Не удалось подключиться к базе после 5 попыток")
+
+if __name__ == "__main__":
+    with get_db() as db:
+        print(db)
+
+models -> request.py
+
+from models.base import Base
+from models.satellite import SatelliteSchema
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, String
+from sqlalchemy.orm import relationship
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class RequestStatus(Base):
+    __tablename__ = 'request_status'
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255))
+
+    requests = relationship("Request", back_populates="status")
+    
+
+class Request(Base):
+    __tablename__ = "requests"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    camera_satellite_id = Column(Integer, ForeignKey("satellites.id"))
+    target_satellite_id = Column(Integer, ForeignKey("satellites.id"))
+    request_time = Column(DateTime)
+    created = Column(DateTime, default=datetime.now)
+    status_id = Column(Integer, ForeignKey("request_status.id"))
+    comment = Column(String(255), nullable=True)
+    file_path = Column(String(255), nullable=True)
+
+    status = relationship("RequestStatus", back_populates="requests")
+    camera_satellite = relationship(
+        "Satellite",
+        back_populates="camera_requests",
+        foreign_keys=[camera_satellite_id],
+    )
+
+    target_satellite = relationship(
+        "Satellite",
+        back_populates="target_requests",
+        foreign_keys=[target_satellite_id],
+    )
+
+
+class RequestStatusSchema(BaseModel):
+    id: int
+    title: str
+
+class RequestSchema(BaseModel):
+    id: int
+    user_id: int # кто формирует запрос
+    camera_satellite_id: int #спутник который фотографирует
+    target_satellite_id: int #спутник который фотографируют
+    request_time: datetime #время проведеня съемки
+    created: datetime #время создания запроса
+    status_id: int #статус запроса
+    comment: str | None = None #комментарий к запросу
+    file_path: str | None = None
+
+    status: RequestStatusSchema | None = None
+    camera_satellite: SatelliteSchema | None = None
+    target_satellite: SatelliteSchema | None = None
+
+models -> satellite.py
+
+from pydantic import BaseModel, EmailStr
+from models.base import Base
+from sqlalchemy import Column, Float, Integer, String, Boolean, DateTime, Text
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+class SatelliteSchema(BaseModel):
+    id: int|None = None
+    name: str
+    full_TLE: str
+    camera: bool = False
+
+    cutalog_num: str # Номер спутника в базе данных NORAD
+    classfic: str # Классификация (U=Unclassified — не секретный)
+    international_des_year: int # Международное обозначение (последние две цифры года запуска)
+    international_des_num: int # Международное обозначение (номер запуска в этом году)
+    international_des_push: str # Международное обозначение (часть запуска)
+    epoch_year: int # 	Год эпохи (последние две цифры)
+    epoch_day: float # Время эпохи (целая часть — номер дня в году, дробная — часть дня)
+    first_meanmotion_a: float # Первая производная от среднего движения (ускорение), делённая на два [виток/день^2]
+    second_meanmotion_a: str # Вторая производная от среднего движения, делённая на шесть
+    drag_term_b: str # Коэффициент торможения B*
+    nul: int # Изначально — типы эфемерид, сейчас — всегда число 0
+    el_set_num: int # Номер (версия) элемента
+
+    inclin_digrees: float # Наклонение в градусах
+    ascension: float # Долгота восходящего узла в градусах
+    eccentricity: float # Эксцентриситет (подразумевается, что число начинается с десятичного разделителя)
+    perigee_arg: float # Аргумент перицентра в градусах
+    meananomaly: float # Средняя аномалия в градусах
+    meanmotion: float # Частота обращения (оборотов в день) (среднее движение) [виток/день]
+    revolution_num: int # Номер витка на момент эпохи
+
+    checksum: int # Контрольная сумма по модулю 10
+
+class SatelliteCrossSchema(BaseModel):
+    id: int
+    target_id: int
+    name: str
+    time_visible: datetime
+
+class Satellite(Base):
+    __tablename__ = "satellites"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), unique=True)
+    full_TLE = Column(Text, unique=True)
+    camera = Column(Boolean, default=False)
+
+    cutalog_num = Column(String(255)) # Номер спутника в базе данных NORAD
+    classfic = Column(String(255)) # Классификация (U=Unclassified — не секретный)
+    international_des_year = Column(Integer) # Международное обозначение (последние две цифры года запуска)
+    international_des_num = Column(Integer) # Международное обозначение (номер запуска в этом году)
+    international_des_push = Column(String(255)) # Международное обозначение (часть запуска)
+    epoch_year = Column(Integer) # 	Год эпохи (последние две цифры)
+    epoch_day = Column(Float) # Время эпохи (целая часть — номер дня в году, дробная — часть дня)
+    first_meanmotion_a = Column(Float) # Первая производная от среднего движения (ускорение), делённая на два [виток/день^2]
+    second_meanmotion_a = Column(String(255)) # Вторая производная от среднего движения, делённая на шесть
+    drag_term_b = Column(String(255)) # Коэффициент торможения B*
+    nul = Column(Integer) # Изначально — типы эфемерид, сейчас — всегда число 0
+    el_set_num = Column(Integer) # Номер (версия) элемента
+
+    inclin_digrees = Column(Float) # Наклонение в градусах
+    ascension = Column(Float) # Долгота восходящего узла в градусах (подразумевается, что число начинается с десятичного разделителя)
+    eccentricity = Column(Float) # Эксцентриситет (подразумевается, что число начинается с десятичного разделителя)
+    perigee_arg = Column(Float) # Аргумент перицентра в градусах
+    meananomaly = Column(Float) # Средняя аномалия в градусах
+    meanmotion = Column(Float) # Частота обращения (оборотов в день) (среднее движение) [виток/день]
+    revolution_num = Column(Integer) # Номер витка на момент эпохи
+
+    checksum = Column(Integer) # Контрольная сумма по модулю 10
+
+    camera_requests = relationship(
+        "Request",
+        back_populates="camera_satellite",
+        foreign_keys="[Request.camera_satellite_id]",
+    )
+
+    target_requests = relationship(
+        "Request",
+        back_populates="target_satellite",
+        foreign_keys="[Request.target_satellite_id]",
+    )
+
+models -> user.py
+
+from pydantic import BaseModel, EmailStr
+from models.base import Base
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from datetime import datetime
+
+class UserSchema(BaseModel): # Схема
+    id: int
+    email: EmailStr
+    name: str
+    is_admin: bool
+    password: str
+    created: datetime
+
+class User(Base): # Модель
+    """# Привязка к базе данных"""
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True)
+    name = Column(String(255))
+    is_admin = Column(Boolean, default=False)
+    password = Column(String(255))
+    created = Column(DateTime, default=datetime.now)
+
+repositories -> request_repository.py
+
+from sqlalchemy.orm.session import Session
+from sqlalchemy.orm import joinedload
+from pydantic import BaseModel
+from datetime import datetime
+from models import RequestStatus, Request, RequestSchema
+
+class RequestCreateDto(BaseModel):
+    user_id: int
+    camera_satellite_id: int
+    target_satellite_id: int
+    request_time: datetime | None = None
+
+class RequestRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_status(self, title: str):
+        request_status = RequestStatus(title=title)
+        self.db.add(request_status)
+        self.db.commit()
+
+    def create(self, request: RequestCreateDto):
+        request = Request(**request.model_dump(), status_id=1)
+        self.db.add(request)
+        self.db.commit()
+
+    def get_all(self):
+        return [RequestSchema.model_validate(request, from_attributes=True) for request in self.db.query(Request).all()]
+    
+    def decline_request(self, request_id: int, comment: str):
+        request = self.db.query(Request).filter(Request.id == request_id).first()
+        request.status_id = 2
+        request.comment = comment
+        self.db.commit()
+
+    def accept_request(self, request_id: int, file_path: str):
+        request = self.db.query(Request).filter(Request.id == request_id).first()
+        request.status_id = 3
+        request.file_path = file_path
+        self.db.commit()
+
+    def get_by_user_id(self, user_id: int):
+        return [
+            RequestSchema.model_validate(request, from_attributes=True) 
+            for request in self.db.query(Request).filter(Request.user_id == user_id).all()
+        ]
+    
+    def get_unchecked_requests(self):
+        return [
+            RequestSchema.model_validate(request, from_attributes=True) 
+            for request in self.db.query(Request)
+            .options(
+                joinedload(Request.status),
+                joinedload(Request.camera_satellite),
+                joinedload(Request.target_satellite)
+            ).filter(Request.status_id == 1).all()
+        ]
+
+repositories -> satellite_repository.py
+
+from sqlalchemy.orm.session import Session
+from pydantic import BaseModel, EmailStr
+from models import Satellite, SatelliteSchema
+from typing import List
+from sqlalchemy.exc import IntegrityError
+
+class SatelliteRepository:
+    """# Класс для работы с таблицей спутников"""
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create(self, data: SatelliteSchema):
+        try:
+            satel = Satellite(**data.model_dump()) # Переводим данные из dto в модель
+            self.db.add(satel) # Добавляем пользователя в базу
+            self.db.commit() # Сохраняем
+            self.db.refresh(satel) # Обновляем данные пользователя (id, ...)
+            return SatelliteSchema.model_validate(satel, from_attributes=True) # Переводим в схему и возвращаем
+        except IntegrityError:
+            print("Спутник был")
+            self.db.rollback()
+            return
+        
+    def get_all(self) -> List[SatelliteSchema]:
+        return [
+            SatelliteSchema.model_validate(satel, from_attributes=True)
+            for satel in self.db.query(Satellite).all()
+        ]
+    
+    def get_by_id(self, id: int) -> SatelliteSchema:
+        satel = self.db.query(Satellite).filter(Satellite.id == id).first()
+        if satel is None:
+            raise Exception("Такого спутника нет")
+        return SatelliteSchema.model_validate(satel, from_attributes=True)
+    
+    def add_camera(self, name: str) -> SatelliteSchema:
+        satel = self.db.query(Satellite).filter(Satellite.name == name).first()
+        if satel is None:
+            raise Exception(f"Спутника {name} нет")
+        satel.camera = True
+        self.db.commit()
+        return SatelliteSchema.model_validate(satel, from_attributes=True)
+
+repositories -> user_repository.py
+
+from sqlalchemy.orm.session import Session
+from pydantic import BaseModel, EmailStr
+from models import User, UserSchema
+from typing import List
+
+class UserCreateDto(BaseModel):
+    email: EmailStr
+    name: str
+    is_admin: bool = False
+    password: str
+
+class UserRepository:
+    """# Класс для работы с таблицей пользователей"""
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create(self, user_data: UserCreateDto) -> UserSchema:
+        user = User(**user_data.model_dump()) # Переводим данные из dto в модель
+        self.db.add(user) # Добавляем пользователя в базу
+        self.db.commit() # Сохраняем
+        self.db.refresh(user) # Обновляем данные пользователя (id, ...)
+        return UserSchema.model_validate(user, from_attributes=True) # Переводим в схему и возвращаем
+    
+    def get_by_id(self, user_id: int) -> UserSchema:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise Exception("Такого пользователя нет")
+        return UserSchema.model_validate(user, from_attributes=True)
+    
+    def get_by_email(self, email: str) -> UserSchema:
+        user = self.db.query(User).filter(User.email == email).first()
+        if user is None:
+            raise Exception("Такого пользователя нет")
+        return UserSchema.model_validate(user, from_attributes=True)
+    
+    def get_all(self) -> List[UserSchema]:
+        return [
+            UserSchema.model_validate(user, from_attributes=True)
+            for user in self.db.query(User).all()
+        ]
+
+routers -> request_router.py
+
+from controllers import RequestController
+from flask import Blueprint
+
+class RequestRouter:
+    def __init__(self, controller: RequestController):
+        self.controller = controller
+        self.router = Blueprint("request", __name__)
+        self._setup_routes()
+
+    def _setup_routes(self):
+        self.router.add_url_rule("/", view_func=self.controller.create_request, methods=["POST"], endpoint="create_request")
+        self.router.add_url_rule("/", view_func=self.controller.get_all_requests, methods=["GET"], endpoint="get_all_requests")
+        self.router.add_url_rule("/unchecked/", view_func=self.controller.get_unchecked_requests, methods=["GET"], endpoint="get_unchecked_requests")
+        self.router.add_url_rule("/decline/<int:request_id>", view_func=self.controller.decline_request, methods=["PUT"], endpoint="decline_request")
+        self.router.add_url_rule("/accept/<int:request_id>", view_func=self.controller.accept_request, methods=["PUT"], endpoint="accept_request")
+        self.router.add_url_rule("/own/", view_func=self.controller.get_requests_by_user_id, methods=["GET"], endpoint="get_requests_by_user_id")
+
+routers -> satellite_router.py
+
+from controllers import RequestController
+from flask import Blueprint
+
+class RequestRouter:
+    def __init__(self, controller: RequestController):
+        self.controller = controller
+        self.router = Blueprint("request", __name__)
+        self._setup_routes()
+
+    def _setup_routes(self):
+        self.router.add_url_rule("/", view_func=self.controller.create_request, methods=["POST"], endpoint="create_request")
+        self.router.add_url_rule("/", view_func=self.controller.get_all_requests, methods=["GET"], endpoint="get_all_requests")
+        self.router.add_url_rule("/unchecked/", view_func=self.controller.get_unchecked_requests, methods=["GET"], endpoint="get_unchecked_requests")
+        self.router.add_url_rule("/decline/<int:request_id>", view_func=self.controller.decline_request, methods=["PUT"], endpoint="decline_request")
+        self.router.add_url_rule("/accept/<int:request_id>", view_func=self.controller.accept_request, methods=["PUT"], endpoint="accept_request")
+        self.router.add_url_rule("/own/", view_func=self.controller.get_requests_by_user_id, methods=["GET"], endpoint="get_requests_by_user_id")
+
+router -> user_router
+
+from controllers import UserController
+from flask import Blueprint
+
+class UserRouter:
+    def __init__(self, controller: UserController):
+        self.controller = controller
+        self.router = Blueprint("user", __name__)
+        self._setup_routes()
+
+    def _setup_routes(self):
+        self.router.add_url_rule("/signup/", view_func=self.controller.signup, methods=["POST"], endpoint="signup")
+        self.router.add_url_rule("/signin/", view_func=self.controller.signin, methods=["POST"], endpoint="signin")
+        self.router.add_url_rule("/me/", view_func=self.controller.me, methods=["GET"], endpoint="me")
+        self.router.add_url_rule("/", view_func=self.controller.get_all, methods=["GET"], endpoint="get_all")
+
+services -> request_service.py
+
+from repositories import RequestRepository, RequestCreateDto
+from utils.request_file_storage import RequestFileStorage
+from werkzeug.datastructures import FileStorage
+from typing import List
+from models import RequestSchema
+
+class RequestService:
+    def __init__(
+            self, 
+            request_repository: RequestRepository,
+            request_file_storage: RequestFileStorage
+        ):
+        self.request_repository = request_repository
+        self.request_file_storage = request_file_storage
+
+    def create(self, request: RequestCreateDto) -> None:
+        self.request_repository.create(request)
+    
+    def get_all(self) -> List[RequestSchema]:
+        return self.request_repository.get_all()
+    
+    def get_unchecked_requests(self) -> List[RequestSchema]:
+        return self.request_repository.get_unchecked_requests()
+    
+    def decline_request(self, request_id: int, comment: str) -> None:
+        self.request_repository.decline_request(request_id, comment)
+
+    def accept_request(self, request_id: int, file: FileStorage) -> None:
+        file_path = self.request_file_storage.upload_file(file)
+        self.request_repository.accept_request(request_id, file_path)
+
+    def get_by_user_id(self, user_id: int) -> List[RequestSchema]:
+        return self.request_repository.get_by_user_id(user_id)
+
+services -> satellite_service.py
+
+from repositories import SatelliteRepository
+from core.tle_encoder import TLE_encoder
+from core import GeometryEngine
+from models import SatelliteCrossSchema
+from typing import List
+
+class SatelliteService:
+    def __init__(
+            self, 
+            satellite_repo: SatelliteRepository,
+            geometry_engine: GeometryEngine
+        ):
+        self.satellite_repo = satellite_repo
+        self.geometry_engine = geometry_engine
+
+    def fill_satellites(self, file_path: str = "TLE_msu.txt"):
+        satellites = TLE_encoder.open_TLEfile(file_path)
+        for satellite in satellites:
+            self.satellite_repo.create(satellite)
+
+    def get_all(self):
+        return self.satellite_repo.get_all()
+    
+    def near_satellites(self, satellite_id: int) -> List[SatelliteCrossSchema]:
+        target_satellite = self.satellite_repo.get_by_id(satellite_id)
+        result = []
+        for satellite in self.get_all():
+            if satellite.camera: # Если у спутника есть камера, то ищем только у него
+                visible = self.geometry_engine.check_visibility(target_satellite, satellite)
+                if satellite.id != target_satellite.id and visible is not None:
+                    print("Найден близкий спутник", satellite.name)
+                    result.append(SatelliteCrossSchema(
+                        id=satellite.id, 
+                        target_id=target_satellite.id, 
+                        name=satellite.name, 
+                        time_visible=visible.utc_datetime()
+                    ))
+        return result
+
+services -> user_service.py
+
+from repositories import UserRepository, UserCreateDto
+from models import UserSchema
+from pydantic import BaseModel, EmailStr
+from typing import List
+from jwt import encode
+import os
+
+class SigninDto(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserService:
+    def __init__(self, user_repo: UserRepository):
+        self.user_repo = user_repo
+
+    def signup(self, user_data: UserCreateDto) -> UserSchema:
+        return self.user_repo.create(user_data)
+    
+    def _generate_token(self, user_id: int, is_admin: bool) -> str:
+            payload = {
+                'user_id': str(user_id),
+                'is_admin': str(int(is_admin)),
+            }
+            print("Шифрую в токен", payload)
+            return encode(payload, os.getenv('JWT_SECRET'), algorithm='HS256')
+
+    def signin(self, signin_data: SigninDto):
+        user = self.user_repo.get_by_email(signin_data.email)
+        if user.password == signin_data.password:
+            token = self._generate_token(user.id, user.is_admin)
+            return token
+        raise Exception("Пароль неверный")
+
+    def me(self, user_id: int):
+        return self.user_repo.get_by_id(user_id)
+
+    def get_all(self) -> List[UserSchema]:
+        return self.user_repo.get_all()
+
+startup.py
+
+from models import Base, get_db, engine
+from repositories import RequestRepository, SatelliteRepository
+from services import SatelliteService
+from core import GeometryEngine
+
+STATUSES = [
+    "В процессе",
+    "Отклонено",
+    "Завершено"
+]
+
+if __name__ == "__main__":
+    Base.metadata.create_all(engine)
+    with get_db() as db:
+        repo = RequestRepository(db)
+        satellite_repo = SatelliteRepository(db)
+        g_e = GeometryEngine()
+        satellite_service = SatelliteService(satellite_repo, g_e)
+
+
+        for status in STATUSES:
+            repo.create_status(status)
+
+        satellite_service.fill_satellites()
+
+        with open("cameras.txt") as file:
+            for line in file:
+                try:
+                    satellite_repo.add_camera(line.strip())
+                except Exception as e:
+                    print(f"Error adding camera: {e}")
+
+main.py
+
+from flask import Flask
+from models import get_db, Base, engine
+from repositories import UserRepository, SatelliteRepository, RequestRepository
+from services import UserService, SatelliteService, RequestService
+from controllers import UserController, SatelliteController, RequestController
+from core import GeometryEngine
+from routers import UserRouter, SatelliteRouter, RequestRouter
+from utils.request_file_storage import RequestFileStorage
+from dotenv import load_dotenv
+from flask_cors import CORS
+
+if __name__ == "__main__":
+    Base.metadata.create_all(bind=engine)
+    load_dotenv(override=True)
+    with get_db() as db:
+        g_e = GeometryEngine()
+
+        user_repo = UserRepository(db)
+        satellite_repo = SatelliteRepository(db)
+        request_repo = RequestRepository(db)
+
+        request_file_storage = RequestFileStorage()
+
+        user_service = UserService(user_repo)
+        satellite_service = SatelliteService(satellite_repo, g_e)
+        request_service = RequestService(request_repo, request_file_storage)
+
+        user_controller = UserController(user_service)
+        satellite_controller = SatelliteController(satellite_service)
+        request_controller = RequestController(request_service)
+
+        user_router = UserRouter(user_controller)
+        satellite_router = SatelliteRouter(satellite_controller)
+        request_router = RequestRouter(request_controller)
+
+        app = Flask(__name__, static_folder="files", static_url_path="/files")
+        CORS(app)
+        app.register_blueprint(user_router.router, url_prefix="/users")
+        app.register_blueprint(satellite_router.router, url_prefix="/satellites")
+        app.register_blueprint(request_router.router, url_prefix="/requests")
+        app.run(host="0.0.0.0", port=5000)
+
+Dockerfile
+FROM python:3.10-slim
+RUN apt-get update && apt-get install -y \ 
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+COPY .env .
+# CMD [ "flask", "run", "--host=0.0.0.0" ]
+CMD ["python", "main.py"]
+
+docker-compose.yml
+version: '3.9'
+services:
+  api:
+    build: .
+    container_name: flask-api
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./.env:/app/.env
+    environment:
+      - FLASK_APP=main.py
+      - FLASK_ENV=development
+    depends_on:
+      - init-db
+
+  init-db:
+    build: .
+    container_name: db-init
+    command: python startup.py
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_ENV=development

@@ -3,8 +3,6 @@ from models.base import Base
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from datetime import datetime
 
-#Схема для 3 бд + модели для них
-
 
 class UserSchema(BaseModel): # Схема
     id: int

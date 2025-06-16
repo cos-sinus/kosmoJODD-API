@@ -5,7 +5,6 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 
-# получается нада добавить в базу поле с наличием камеры и фокусным расстоянием
 class SatelliteSchema(BaseModel):
     id: int|None = None
     name: str
@@ -48,7 +47,7 @@ class Satellite(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), unique=True)
     full_TLE = Column(Text, unique=True)
-    camera = Column(Boolean, default=False)######################################################
+    camera = Column(Boolean, default=False)
 
     cutalog_num = Column(String(255)) # Номер спутника в базе данных NORAD
     classfic = Column(String(255)) # Классификация (U=Unclassified — не секретный)

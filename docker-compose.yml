@@ -14,6 +14,8 @@ services:
       - FLASK_ENV=development
     depends_on:
       - init-db
+    networks:
+      - backend
 
   init-db:
     build: .
@@ -23,3 +25,19 @@ services:
       - .:/app
     environment:
       - FLASK_ENV=development
+
+
+  spa:
+    build: ../kosmoJODD_SPA
+    container_name: kosmoJODD-SPA
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
